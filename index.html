@@ -1,0 +1,363 @@
+<!doctype html>
+<html lang="en">
+
+    <head>
+        <meta charset="utf-8">
+
+        <title>Google Service Workers</title>
+
+        <meta name="description" content="An introduction to google service workers">
+        <meta name="author" content="Ricardo Alvarado">
+
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+        <link rel="stylesheet" href="css/reveal.min.css">
+        <link rel="stylesheet" href="css/theme/default.css" id="theme">
+
+        <!-- For syntax highlighting -->
+        <link rel="stylesheet" href="lib/css/zenburn.css">
+
+        <!-- If the query includes 'print-pdf', include the PDF print sheet -->
+        <script>
+            if( window.location.search.match( /print-pdf/gi ) ) {
+                var link = document.createElement( 'link' );
+                link.rel = 'stylesheet';
+                link.type = 'text/css';
+                link.href = 'css/print/pdf.css';
+                document.getElementsByTagName( 'head' )[0].appendChild( link );
+            }
+        </script>
+
+        <!--[if lt IE 9]>
+        <script src="lib/js/html5shiv.js"></script>
+        <![endif]-->
+
+        <link rel="stylesheet" href="css/custom.css">
+    </head>
+
+    <body>
+
+        <div class="reveal">
+
+            <!-- Any section element inside of this container is displayed as a slide -->
+            <div class="slides">
+                <section>
+                    <h2>Google Service Workers</h2>
+                    <h3>A basic overview</h3>
+                    <p>
+                        <small>Based on the article published by <a href="http://www.html5rocks.com/en/tutorials/service-worker/introduction">Matt Gaunt</a></small>
+                    </p>
+                    <p>
+                        <small>Compiled by Ricardo Alvarado / <a href="http://twitter.com/rijoalvi" target="blank">@rijoalvi</a></small>
+                    </p>
+                </section>
+
+                <section>
+                    <h2>Agenda</h2>
+                    <ol class="block small-font">
+                        <li>What is a Service Worker?</li>
+                        <li>Service Worker Lifecycle</li>
+                        <li>Requirements</li>
+                        <li>Getting Started</li>
+                        <li>Updating a Service Worker</li>
+                        <li>Fails, Wins & Tricks</li>
+                        <li>Example</li>
+                    </ol>
+
+                    <aside class="notes">
+                        Oh hey, these are some notes. They'll be hidden in your presentation, but you can see them if you open the speaker notes window (hit 's' on your keyboard).
+                    </aside>
+                </section>
+
+                <section>
+                    <h3>What is a Service Worker?</h3>
+                    <p class="left small-font">
+                        It is a script that is run by your browser in the background, separate from a web page, opening the door to features which don't need a web page or user interaction.
+                    </p>
+                    <p class="left small-font">
+                        The core feature from this utility is the ability to intercept and handle network requests, including programmatically managing a cache of responses.
+                    </p>
+                    <p class="left small-font">
+                        It also includes features like push notifications and in the future it will include other things like background sync or geofencing.
+                    </p>
+                </section>
+
+                <section>
+                    <h3>What is a Service Worker? (cont.)</h3>
+                    <p class="left small-font">Important things about a service worker:</p>
+                    <ul class="block small-font">
+                        <li>It's a JavaScript Worker, so it can't access the DOM directly. Instead, a service worker can communicate with the pages it controls by responding to messages sent via the postMessage interface.</li>
+                        <li>It's a programmable network proxy, which allows you to control how network requests from your page are handled./li>
+                        <li>It will be terminated when not in use, and restarted when it's next needed, so you cannot rely on global state within a service worker's onfetch and onmessage handlers. If you need to persist information, service workers do have access to the IndexedDB API.</li>
+                        <li>Service workers make extensive use of promises</li>
+                    </ul>
+                </section>                
+
+                <section>
+                    <h3>Service Worker Lifecycle</h3>
+                    <img class="white-image right-float" src="img/sw-lifecycle.png" alt="Service Worker Lifecycle">
+                    <p class="left small-font">The service worker lifecycle is completely separate from your webpage.</p>
+                    <p class="left small-font">Tipically, the lifecycle includesthe following steps:</p>
+                    <ol class="block small-font">
+                        <li>Register the service worker on the site (this will cause the browser to install the SW)</li>
+                        <li>Install step. If this succeeds, the SW becomes active, otherwise, it won't activate</li>
+                        <li>Activation step. If this succeeds, the SW gets control of the requests from all the pages under its scope</li>
+                        <li>Handling Fetch and message requests or</li>
+                        <li>Terminate the Service Worker</li>
+                    </ol>
+                </section>
+
+                <section>
+                    <h3>Requirements when using service workers</h3>
+                    <img class="right-float" src="img/y-u-no-https.jpg" width="300" alt="https meme">
+                    <ul class="block small-font">
+                        <li>HTTPS is Needed. We're working with stuff that can hijack connections, fabricate, and filter responses. We need to be sure that these powers are used only for good.</li>
+                        <li>Service Workers work locally without https so, for development purposes there's no problem</li>
+                        <li>If you don't want to a certificate and you need to try this on the web, keep in mind that sites like github server their content over https :)</li>
+                        <li>We need to grab a polyfill from this repository <a href="https://github.com/coonsta/cache-polyfill" target="_blank">https://github.com/coonsta/cache-polyfill</a>. This will add support for Cache.addAll</li>
+                        
+                    </ul>
+                </section>
+
+                <section>
+                    <section>
+                        <h2>Getting Started</h2>
+                    </section>
+                    <section>
+                        <h3>Registering a Service Worker</h3>
+                        <p class="left small-font">By starting the register process, we basically tell the browser where the service worker JavaScript file lives.</p>
+                        <pre><code data-trim>
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js').then(function(registration) {
+    // Registration was successful
+    console.log('ServiceWorker registration successful with scope: ', registration.scope);
+  }).catch(function(err) {
+    // registration failed :(
+    console.log('ServiceWorker registration failed: ', err);
+  });
+}
+                        </code></pre>
+                        <ul class="block small-font">
+                            <li>You can call register every time a page. The browser will figure out if the service worker is already registered or not and handle it accordingly.</li>
+                            <li>The service worker scope is 100% related to the location of the service worker js file. If this file is located at the root  of the domain, it scope will be the entire domain but, for example, if the file is at /example/sw.js , the scope would be only the requests starting with /example/</li>
+                        </ul>
+                    </section>
+                    <section>
+                        <h3>Checking if a Service Worker is enabled</h3>
+                        <p class="left small-font">You can check that a service worker is enabled by going to <a href="chrome://inspect/service-workers#service-workers" target="_blank">chrome://inspect/service-workers#service-workers</a> and looking for your site. (copy and paste the url since chrome doesn't allow internal links)</p>
+                        <img class="right-float" src="img/sw-chrome-inspect.png" alt="component structure">
+                    </section>
+                     <section>
+                        <h3>Service Worker Install Step</h3>
+                        <p class="left small-font">You can handle the install event, which is fired after a controlled page kicks off the registration process</p>
+                        <p class="left small-font">For the most basic example, you need to define a callback for the install event and decide which files you want to cache.</p>
+                        <p class="left small-font">Inside of your install callback, you need to take the following steps:<p>
+                        <ol class="block small-font">
+                            <li>Open a cache</li>
+                            <li>Cache your files</li>
+                            <li>Confirm whether all the required assets are cached or not</li>
+                        </ol>
+                        <pre><code data-trim>
+var CACHE_NAME = 'my-site-cache-v1';
+var urlsToCache = [
+  '/',
+  '/styles/main.css',
+  '/script/main.js'
+];
+
+self.addEventListener('install', function(event) {
+  // Perform install steps
+  event.waitUntil(
+    caches.open(CACHE_NAME)
+      .then(function(cache) {
+        console.log('Opened cache');
+        return cache.addAll(urlsToCache);
+      })
+  );
+});
+                        </code></pre>
+                    </section>
+                    <section>
+                        <h3>How to Cache and Return Requests</h3>
+                        <p class="left small-font">After a service worker is installed and the user navigates to a different page or refreshes, the service worker will begin to receive fetch events</p>
+                        <p class="left small-font">Since we want to cache new requests cumulatively, we can do so by handling the response of the fetch request and then adding it to the cache, like below:</p>
+                        <pre><code data-trim>
+self.addEventListener('fetch', function(event) {
+  event.respondWith(
+    caches.match(event.request)
+      .then(function(response) {
+        // Cache hit - return response
+        if (response) {
+          return response;
+        }
+
+        // IMPORTANT: Clone the request. A request is a stream and can only be consumed once.
+        // Since we are consuming this once by cache and once by the browser for fetch, we 
+        // need to clone the response
+        var fetchRequest = event.request.clone();
+
+        return fetch(fetchRequest).then(
+          function(response) {
+            // Check if we received a valid response
+            if(!response || response.status !== 200 || response.type !== 'basic') {
+              return response;
+            }
+
+            // IMPORTANT: Clone the response. A response is a stream and because we want the
+            // browser to consume the response as well as the cache consuming the response,
+            // we need to clone it so we have 2 streams.
+            var responseToCache = response.clone();
+
+            caches.open(CACHE_NAME)
+              .then(function(cache) {
+                cache.put(event.request, responseToCache);
+              });
+
+            return response;
+          }
+        );
+      })
+    );
+});
+                        </code></pre>
+                        <aside class="notes">
+                            <p class="left small-font">What we are doing is this:</p>
+                            <ol class="block small-font">
+                                <li>Add a callback to .then on the fetch request</li>
+                                <li>Once we get a response, we perform the following checks:
+                                    <ol class="block small-font">
+                                        <li>Ensure the response is valid.</li>
+                                        <li>Check the status is 200 on the response.</li>
+                                        <li>Make sure the response type is basic, which indicates that it's a request from our origin. This means that requests to third party assets aren't cached as well.</li>
+                                    </ol>
+                                </li>
+                                <li>If we pass the checks, we clone the response. The reason for this is that because the response is a Stream, the body can only be consumed once. Since we want to return the response for the browser to use, as well as pass it to the cache to use, we need to clone it so we can send one to the browser and one to the cache.</li>
+                            </ol>
+                        </aside>
+                    </section>
+                </section>
+                <section>
+                    <section>
+                        <h3>How to Update a Service Worker</h3>
+                        <p class="left small-font">There will be a point in time where your service worker will need updating. When that time comes, you'll need to follow these steps:</p>
+                        <ol class="block small-font">
+                            <li>Update your service worker JavaScript file: When the user navigates to your site, the browser tries to redownload the script file that defined the service worker in the background. If there is even a byte's difference in the service worker file compared to what it currently has, it considers it 'new'.
+                            </li>
+                            <li>Your new service worker will be started and the install event will be fired.</li>
+                            <li>At this point the old service worker is still controlling the current pages so the new service worker will enter a "waiting" state.</li>
+                            <li>When the currently open pages of your site are closed, the old service worker will be killed and the new service worker will take control.</li>
+                            <li>Once your new service worker takes control, its activate event will be fired.</li>
+                        </ol>
+                        <aside class="notes">One common task that will occur in the activate callback is cache management. The reason you'll want to do this in the activate callback is because if you were to wipe out any old caches in the install step, any old service worker, which keeps control of all the current pages, will suddenly stop being able to serve files from that cache.</aside>
+                    </section>
+                    <section>
+                        <h3>Whitelisting caches</h3>
+                        <p class="left small-font">Let's say we have one cache called 'my-site-cache-v1', and we find that we want to split this out into one cache for pages and one cache for blog posts. This means in the install step we'd create two caches, 'pages-cache-v1' and 'blog-posts-cache-v1' and in the activate step we'd want to delete our older 'my-site-cache-v1'.</p>
+                        <pre><code data-trim>
+self.addEventListener('activate', function(event) {
+
+  var cacheWhitelist = ['pages-cache-v1', 'blog-posts-cache-v1'];
+
+  event.waitUntil(
+    caches.keys().then(function(cacheNames) {
+      return Promise.all(
+        cacheNames.map(function(cacheName) {
+          if (cacheWhitelist.indexOf(cacheName) === -1) {
+            return caches.delete(cacheName);
+          }
+        })
+      );
+    })
+  );
+});
+                        </code></pre>
+                    </section>
+                </section>
+                <section>
+                    <section>
+                        <h2>Common Problems</h2>
+                    </section>
+                    <section>
+                        <h3>If Installation Fails, Sometimes it's hard to notice</h3>
+                        <p class="left small-font">If a worker registers, but then doesn't appear in the chrome service workers page (<a href="chrome://inspect/service-workers#service-workers" target="_blank">chrome://inspect/service-workers#service-workers</a>), probably it failed to install due to an error being thrown, or a rejected promise being passed to event.waitUntil</p>
+                        <p class="left small-font">To work around this, go to <a href="chrome://serviceworker-internals" target="_blank">chrome://serviceworker-internals</a> and check "Opens the DevTools window for service worker on start for debugging", and put a debugger; statement at the start of your install event. This, along with " Pause on uncaught exceptions", should reveal the issue.</p>
+                        <img class="white-image" src="img/devToolsOpen.png" alt="Service Worker Lifecycle">
+                    </section>
+                    <section>
+                        <h3>No Credentials by Default on fetch()</h3>
+                        <p class="left small-font">When you use fetch, by default, requests won't contain credentials such as cookies. If you want credentials, instead call:</p>
+                        <pre><code data-trim>
+fetch(url, {
+  credentials: 'include'
+})
+                        </code></pre>
+                    </section>
+                    <section>
+                        <h3>Non-CORS Fail by Default</h3>
+                        <p class="left small-font">By default, fetching a resource from a third party URL will fail if it doesn't support CORS. You can add a non-CORS option to the Request to overcome this, although this will cause that you won't be able to tell if the response was successful or not.</p>
+                        <pre><code data-trim>
+cache.addAll(urlsToPrefetch.map(function(urlToPrefetch) {
+  return new Request(urlToPrefetch, { mode: 'no-cors' });
+})).then(function() {
+  console.log('All resources have been fetched and cached.');
+});
+                        </code></pre>
+                    </section>
+                </section>
+                <section>
+                    <h2>Live Demo</h2>
+                </section>
+                <section>
+                    <h3>Questions?</h3>
+                    <img src="img/jack.jpeg" width="300" alt="Jack Sparrow meme">
+                </section>
+                <section>
+                    <h3>Interesting Material On Service Workers</h3>
+                    <ul class="block small-font">
+                        <li><a href="https://jakearchibald.github.io/isserviceworkerready/" target="_blank">https://jakearchibald.github.io/isserviceworkerready/</a></li>
+                        <li><a href="http://www.w3.org/TR/service-workers/" target="_blank">http://www.w3.org/TR/service-workers/</a></li>
+                        <li><a href="https://developer.mozilla.org/en-US/docs/Web/API/Service_Worker_API/Using_Service_Workers" target="_blank">https://developer.mozilla.org/en-US/docs/Web/API/Service_Worker_API/Using_Service_Workers</a></li>
+                        <li><a href="http://blog.lamplightdev.com/2015/01/06/A-Simple-ServiceWorker-App/" target="_blank">http://blog.lamplightdev.com/2015/01/06/A-Simple-ServiceWorker-App/</a></li>
+                    </ul>
+                </section>
+            </div>
+        </div>
+
+        <script src="lib/js/head.min.js"></script>
+        <script src="js/reveal.min.js"></script>
+
+        <script>
+
+            // Full list of configuration options available here:
+            // https://github.com/hakimel/reveal.js#configuration
+            Reveal.initialize({
+                controls: true,
+                progress: true,
+                history: true,
+                center: true,
+
+                theme: Reveal.getQueryHash().theme || 'night', // available themes are in /css/theme
+                transition: Reveal.getQueryHash().transition || 'default', // default/cube/page/concave/zoom/linear/fade/none
+
+                // Parallax scrolling
+                // parallaxBackgroundImage: 'https://s3.amazonaws.com/hakim-static/reveal-js/reveal-parallax-1.jpg',
+                // parallaxBackgroundSize: '2100px 900px',
+
+                // Optional libraries used to extend on reveal.js
+                dependencies: [
+                    { src: 'lib/js/classList.js', condition: function() { return !document.body.classList; } },
+                    { src: 'plugin/markdown/marked.js', condition: function() { return !!document.querySelector( '[data-markdown]' ); } },
+                    { src: 'plugin/markdown/markdown.js', condition: function() { return !!document.querySelector( '[data-markdown]' ); } },
+                    { src: 'plugin/highlight/highlight.js', async: true, callback: function() { hljs.initHighlightingOnLoad(); } },
+                    { src: 'plugin/zoom-js/zoom.js', async: true, condition: function() { return !!document.body.classList; } },
+                    { src: 'plugin/notes/notes.js', async: true, condition: function() { return !!document.body.classList; } }
+                ]
+            });
+
+        </script>
+
+    </body>
+</html>

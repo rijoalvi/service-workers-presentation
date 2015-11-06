@@ -1,0 +1,21 @@
+.reveal .left {
+	text-align: left;
+}
+
+.reveal .block {
+	display: block;
+}
+
+.reveal .small-font {
+	font-size: 0.7em;
+}
+
+.reveal .right-float {
+    float: right;
+}
+
+.reveal .white-image {
+	height: 400px;
+    background: #fff;
+    margin: 0;
+}
